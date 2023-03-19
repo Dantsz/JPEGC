@@ -1,0 +1,10 @@
+{
+  "name": "jpegc",
+  "version": "1",
+  "dependencies": [
+    {
+      "name": "opencv",
+      "features": [ "qt" ]
+    }
+  ]
+}
