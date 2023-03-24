@@ -2,17 +2,14 @@
 //
 
 #include "JPEGC.h"
-#include "opencv2/opencv.hpp"
-#include "opencv2/imgproc.hpp"
-#include "opencv2/imgcodecs.hpp"
-#include "opencv2/highgui.hpp"
-using namespace std;
+#include <opencv2/opencv.hpp>
+
 
 int main()
 {
-	cout << "'Hello CMake." << endl;
+	std::cout << "'Hello CMake." << std::endl;
 	cv::Mat_<uchar> img(256, 256, static_cast<uchar>(0));
 	cv::imshow("a", img);
-	
+	cv::waitKey();
 	return 0;
 }
