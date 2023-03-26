@@ -21,14 +21,14 @@
     ],
     "buildPresets": [
         {
-            "name": "default",
-            "configurePreset": "default"
+            "name": "defaultvcpkg",
+            "configurePreset": "defaultvcpkg"
         }
     ],
     "testPresets": [
         {
-            "name": "default",
-            "configurePreset": "default",
+            "name": "defaultvcpkg",
+            "configurePreset": "defaultvcpkg",
             "output": { "outputOnFailure": true },
             "execution": {
                 "noTestsAction": "error",
