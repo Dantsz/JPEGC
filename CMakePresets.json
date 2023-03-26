@@ -6,18 +6,19 @@
         "patch": 0
     },
     "configurePresets": [
-        {
-            "name": "defaultvcpkg",
-            "displayName": "Default with vcpkg",
-            "description": "Configure with vcpkg toolchain",
-            "binaryDir": "${sourceDir}/builds/${presetName}",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": {
-                    "type": "FILEPATH",
-                    "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-                }
-            }
+      {
+        "name": "defaultvcpkg",
+        "displayName": "Default with vcpkg",
+        "description": "Configure with vcpkg toolchain",
+        "binaryDir": "${sourceDir}/builds/${presetName}",
+        "generator": "Ninja Multi-Config",
+        "cacheVariables": {
+          "CMAKE_TOOLCHAIN_FILE": {
+            "type": "FILEPATH",
+            "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          }
         }
+      }
     ],
     "buildPresets": [
         {
