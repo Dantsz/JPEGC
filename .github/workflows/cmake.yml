@@ -27,8 +27,8 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       uses: lukka/run-cmake@v10
       with:
-          configurePreset: 'ninja-multi-vcpkg'
-          buildPreset: 'ninja-multi-vcpkg'
+          configurePreset: 'defaultvcpkg'
+          buildPreset: 'defaultvcpkg'
 
 
 
