@@ -6,6 +6,7 @@
 #include <string>
 #include <format>
 using namespace argumentum;
+import imageproc;
 
 struct defaults
 {
@@ -29,5 +30,15 @@ int main(int argc, char** argv)
 	if (!parser.parse_args(argc, argv, 1))
 		return 1;
 	std::cout << std::format("Compressing {} -> {}",src_path,dst_path);
+
+	cv::Mat_<cv::Vec3b> img = cv::imread(src_path);
+	const auto [y, u, v] = transform_bgr_to_yuv_split(img);
+
+
+
+	cv::imshow("Y", y);
+	cv::imshow("U", u);
+	cv::imshow("V", v);
+	cv::waitKey();
 	return 0;
 }
