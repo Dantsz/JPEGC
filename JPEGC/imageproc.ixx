@@ -1,6 +1,7 @@
 #include <tuple>
 #include <opencv2/opencv.hpp>
 #include <array>
+#include <valarray>
 #include <vector>
 export module imageproc;
 using SIMG = cv::Mat_<unsigned char>;
@@ -30,7 +31,10 @@ std::vector<std::vector<SIMG>> chunk_image(const SIMG& src_image)
 	chunk_mat.resize(chunk_mat_rows);
 	for (auto i = 0; i < chunk_mat_rows; i++)
 	{
-		chunk_mat[i].resize(chunk_mat_cols, SIMG(ROWS, COLS));
+		for (auto j = 0; j < chunk_mat_cols; j++)
+		{
+			chunk_mat[i].emplace_back(ROWS, COLS);
+		}
 	}
 	for (int i = 0; i < src_image.rows; i++)
 	{
@@ -40,4 +44,31 @@ std::vector<std::vector<SIMG>> chunk_image(const SIMG& src_image)
 		}
 	}
 	return chunk_mat;
+}
+
+export template<int ROWS = 8, int COLS = 8>
+SIMG reconstruct_image(const std::vector<std::vector<SIMG>>& chunks, size_t height ,size_t width)
+{
+	if (chunks.empty() || chunks[0].empty())
+	{
+		return SIMG(0, 0);
+	}
+	SIMG img(ROWS * chunks.size(), COLS * chunks[0].size());
+	img.setTo(0);
+	for (int i = 0; i < chunks.size(); i++)
+	{
+		for (int j = 0; j < chunks[i].size(); j++)
+		{
+			for (int ii = 0; ii < chunks[i][j].rows; ii++)
+			{
+				for (int jj = 0; jj < chunks[i][j].cols; jj++)
+				{
+					img(i * ROWS + ii, j * COLS + jj) = chunks[i][j](ii, jj);
+				}
+			}
+		}
+	}
+	cv::Rect crop_region(0,0, width, height);
+	return img(crop_region);
+
 }

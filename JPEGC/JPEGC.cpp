@@ -36,12 +36,14 @@ int main(int argc, char** argv)
 
 
 
-	cv::imshow("Y", y);
+	/*cv::imshow("Y", y);
 	cv::imshow("U", u);
-	cv::imshow("V", v);
+	cv::imshow("V", v);*/
 
 	const auto chunks_of_Y = chunk_image(y);
 	std::cout << std::format("Image contains {} chunks ({} rows, {} cols)", chunks_of_Y.size() * chunks_of_Y[0].size(), chunks_of_Y.size(), chunks_of_Y[0].size()) << std::endl;
+	const auto new_Y = reconstruct_image(chunks_of_Y,y.rows,img.cols);
+	cv::imshow("new_Y", new_Y);
 	cv::waitKey();
 	return 0;
 }
