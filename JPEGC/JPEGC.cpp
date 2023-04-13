@@ -1,13 +1,10 @@
-﻿// JPEGC.cpp : Defines the entry point for the application.
-//
-
-#include <opencv2/opencv.hpp>
+﻿#include <opencv2/opencv.hpp>
 #include <argumentum/argparse.h>
 #include <string>
 #include <format>
 using namespace argumentum;
-import imageproc;
 
+import imageproc;
 struct defaults
 {
 	static constexpr std::string_view default_destination_path = "./res.bjpeg";
@@ -42,7 +39,13 @@ int main(int argc, char** argv)
 
 	const auto chunks_of_Y = chunk_image(y);
 	std::cout << std::format("Image contains {} chunks ({} rows, {} cols)", chunks_of_Y.size() * chunks_of_Y[0].size(), chunks_of_Y.size(), chunks_of_Y[0].size()) << std::endl;
-	const auto new_Y = reconstruct_image(chunks_of_Y,y.rows,img.cols);
+
+	const auto fdct = FDCT(chunks_of_Y);
+	const auto rev_fdct = rev_FDCT(fdct);
+
+
+	const auto new_Y = reconstruct_image(rev_fdct, y.rows, img.cols);
+
 	cv::imshow("new_Y", new_Y);
 	cv::waitKey();
 	return 0;

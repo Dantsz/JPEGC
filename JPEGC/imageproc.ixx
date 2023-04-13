@@ -1,10 +1,13 @@
+
 #include <tuple>
 #include <opencv2/opencv.hpp>
 #include <array>
 #include <valarray>
 #include <vector>
+#include <functional>
 export module imageproc;
 using SIMG = cv::Mat_<unsigned char>;
+using SSIMG = cv::Mat_<char>;
 using TIMG = cv::Mat_<cv::Vec3b>;
 
 export std::tuple<SIMG, SIMG, SIMG> transform_bgr_to_yuv_split(const TIMG img)
@@ -71,4 +74,39 @@ SIMG reconstruct_image(const std::vector<std::vector<SIMG>>& chunks, size_t heig
 	cv::Rect crop_region(0,0, width, height);
 	return img(crop_region);
 
+}
+
+template<typename IN , typename OUT>
+std::vector <std::vector<cv::Mat_<OUT>>> transform_chunk(const std::vector <std::vector<cv::Mat_<IN>>>& in_data,const std::function<OUT(IN,int,int)>& transform_func )
+{
+	std::vector<std::vector<cv::Mat_<OUT>>> out_data{};
+	out_data.resize(in_data.size());
+	for (auto i = 0; i < in_data.size(); i++)
+	{
+		for (auto j = 0; j < in_data[i].size(); j++)
+		{
+			out_data[i].emplace_back(in_data[i][j].rows, in_data[i][j].cols);
+			for (int ii = 0; ii < in_data[i][j].rows; ii++)
+			{
+				for (int jj = 0; jj < in_data[i][j].cols; jj++)
+				{
+					out_data[i][j](ii, jj) = transform_func(in_data[i][j](ii, jj),ii,jj);
+				}
+			}
+		}
+	}
+	return out_data;
+}
+
+
+export std::vector<std::vector<SSIMG>> FDCT(const std::vector<std::vector<SIMG>>& data)
+{
+	//subtracting
+	std::vector<std::vector<SSIMG>> subtracted_values = transform_chunk<unsigned char, char>(data, [](unsigned char unsigned_value,int,int) { return static_cast<char>(unsigned_value - 128); });
+	return subtracted_values;
+}
+export std::vector<std::vector<SIMG>> rev_FDCT(const std::vector<std::vector<SSIMG>>& data)
+{	
+	std::vector<std::vector<SIMG>> added_values = transform_chunk<char, unsigned char>(data, [](char signed_value, int, int) { return static_cast<unsigned char>(signed_value + 128); });
+	return added_values;
 }
