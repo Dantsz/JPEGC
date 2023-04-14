@@ -6,10 +6,12 @@
 #include <vector>
 #include <functional>
 #include <numbers>
+#include <cstdint>
 
 export module imageproc;
 using SIMG = cv::Mat_<unsigned char>;
 using SSIMG = cv::Mat_<int>;
+using SCIMG = cv::Mat_<int8_t>;
 using FIMG = cv::Mat_<float>;
 using TIMG = cv::Mat_<cv::Vec3b>;
 
@@ -191,4 +193,140 @@ export std::vector<std::vector<SIMG>> rev_FDCT(const std::vector<std::vector<FIM
 		
 		});
 	return added_values;
+}
+export std::vector<std::vector<SCIMG>> quantize(const std::vector<std::vector<FIMG>>& fdct_data)
+{
+	const int quantization_table[][8] = { {16,11,10,16,24,40, 51,61},
+											{12,12,14,19,26,58, 60,55},
+											{14,13,16,24,40,57, 69,56},
+											{14,17,22,29,51,87, 80,62},
+											{18,22,37,56,68,109,103,77},
+											{24,35,55,64,81,104,113,92},
+											{49,64,78,87,103,121,120,101},
+											{72,92,95,98,112,100,103,99} };
+	std::vector<std::vector<SCIMG>> quantized_data = transform_chunk<float, int8_t>(fdct_data, [&](float fdct_value, int i, int j)->int {return static_cast<int8_t>(static_cast<int>(fdct_value) / quantization_table[i][j]); });
+	return quantized_data;
+}
+
+export std::vector<std::vector<FIMG>> dequantize(const std::vector<std::vector<SCIMG>>& quantized_data)
+{
+	const float quantization_table[][8] = { {16,11,10,16,24,40, 51,61},
+											{12,12,14,19,26,58, 60,55},
+											{14,13,16,24,40,57, 69,56},
+											{14,17,22,29,51,87, 80,62},
+											{18,22,37,56,68,109,103,77},
+											{24,35,55,64,81,104,113,92},
+											{49,64,78,87,103,121,120,101},
+											{72,92,95,98,112,100,103,99} };
+	std::vector<std::vector<FIMG>> fdct_data = transform_chunk<int8_t, float>(quantized_data, [&](int8_t quantized_value, int i, int j) -> float { return static_cast<float>(quantized_value) * quantization_table[i][j]; });
+	return fdct_data;
+}
+
+export std::tuple<std::vector<std::array<int8_t,64>>,size_t,size_t> zz_encode(const std::vector<std::vector<SCIMG>>& quantized_data)
+{
+	const int zigzag_LUT[] = { 0, 1, 8, 16, 9, 2, 3, 10,
+						17, 24, 32, 25, 18, 11, 4, 5,
+						12, 19, 26, 33, 40, 48, 41, 34,
+						27, 20, 13, 6, 7, 14, 21, 28,
+						35, 42, 49, 56, 57, 50, 43, 36,
+						29, 22, 15, 23, 30, 37, 44, 51,
+						58, 59, 52, 45, 38, 31, 39, 46,
+						53, 60, 61, 54, 47, 55, 62, 63 };
+
+	std::vector< std::array<int8_t,64>> data{};
+
+	for (auto i = 0; i < quantized_data.size(); i++)
+	{
+		for (auto j = 0; j < quantized_data[i].size(); j++)
+		{
+			data.emplace_back();
+			for (auto ii = 0; ii < quantized_data[i][j].rows * quantized_data[i][j].cols; ii++)
+			{
+				const int row = zigzag_LUT[ii] / 8;
+				const int col = zigzag_LUT[ii] % 8;
+				data.back()[ii] = quantized_data[i][j](row, col);
+			}
+		}
+	}
+	return std::make_tuple(data, quantized_data.size(), quantized_data[0].size());
+}
+export std::vector<std::vector<SCIMG>> zz_decode(const std::tuple<std::vector<std::array<int8_t, 64>>, size_t, size_t>& args)
+{
+	const std::vector< std::array<int8_t, 64>>& encoded_data = std::get<0>(args);
+	auto rows = std::get<1>(args);
+	auto cols = std::get<2>(args);
+	const int zigzag_LUT[] = { 0, 1, 8, 16, 9, 2, 3, 10,
+					17, 24, 32, 25, 18, 11, 4, 5,
+					12, 19, 26, 33, 40, 48, 41, 34,
+					27, 20, 13, 6, 7, 14, 21, 28,
+					35, 42, 49, 56, 57, 50, 43, 36,
+					29, 22, 15, 23, 30, 37, 44, 51,
+					58, 59, 52, 45, 38, 31, 39, 46,
+					53, 60, 61, 54, 47, 55, 62, 63 };
+	std::vector<std::vector<SCIMG>> quantized_data{};
+	quantized_data.resize(rows);
+	for (auto i = 0; i < rows; i++)
+	{
+		for (auto j = 0; j < cols; j++)
+		{
+			quantized_data[i].emplace_back(8, 8);
+			for (auto ii = 0; ii < quantized_data[i][j].rows * quantized_data[i][j].cols; ii++)
+			{
+				const int row = zigzag_LUT[ii] / 8;
+				const int col = zigzag_LUT[ii] % 8;
+				quantized_data[i][j](row, col) = encoded_data[cols * i + j][ii];
+			}
+		}
+	}
+	return quantized_data;
+}
+
+export std::tuple<size_t, size_t,std::vector<std::vector<std::tuple<int8_t, uint8_t>>>> row_length_encode(const std::tuple<std::vector<std::array<int8_t, 64>>, size_t, size_t>& args)
+{
+	std::vector < std::vector < std::tuple<int8_t, uint8_t>>> row_lengths{};
+	
+	const auto rows = std::get<1>(args);
+	const auto cols = std::get<2>(args);
+	const auto& rows_data = std::get<0>(args);
+	for (const auto& row : rows_data)
+	{
+		row_lengths.emplace_back();
+		int8_t value = row[0];
+		int8_t count = 1;
+		for (int i = 1; i < row.size(); i++)
+		{
+			if (row[i] != value || i + 1 == row.size())
+			{
+				row_lengths.back().emplace_back(value, count);
+				value = row[i];
+				count = 1;
+			}
+			else
+			{
+				count++;
+			}
+		}
+	}
+	return std::make_tuple(rows,cols,row_lengths);
+}
+export  std::tuple<std::vector<std::array<int8_t, 64>>, size_t, size_t> row_length_decode(const std::tuple<size_t, size_t,std::vector<std::vector<std::tuple<int8_t, uint8_t>>>>& args)
+{
+	const auto rows = std::get<0>(args);
+	const auto cols = std::get<1>(args);
+	const auto rows_lengths = std::get<2>(args);
+	std::vector<std::array<int8_t, 64>> rows_data{};
+	rows_data.resize(rows_lengths.size());
+	for (auto j = 0 ;j < rows_lengths.size(); j++)
+	{
+		size_t index = 0;
+		for (const auto [value,count] : rows_lengths[j])
+		{
+			for (int i = 0; i < count; i++)
+			{
+				rows_data[j][index + i] = value;
+			}
+			index += count;
+		}
+	}
+	return std::make_tuple(rows_data, rows, cols);
 }

@@ -33,21 +33,26 @@ int main(int argc, char** argv)
 
 
 
-	/*cv::imshow("Y", y);
-	cv::imshow("U", u);
+	cv::imshow("Y", y);
+	/*cv::imshow("U", u);
 	cv::imshow("V", v);*/
 
+	
+	//std::cout << std::format("Image contains {} chunks ({} rows, {} cols)", chunks_of_Y.size() * chunks_of_Y[0].size(), chunks_of_Y.size(), chunks_of_Y[0].size()) << std::endl;
 	const auto chunks_of_Y = chunk_image(y);
-	std::cout << std::format("Image contains {} chunks ({} rows, {} cols)", chunks_of_Y.size() * chunks_of_Y[0].size(), chunks_of_Y.size(), chunks_of_Y[0].size()) << std::endl;
-
-	const auto fdct = FDCT(chunks_of_Y);
-	const auto rev_fdct = rev_FDCT(fdct);
-
-
+		const auto fdct = FDCT(chunks_of_Y);
+			const auto quant = quantize(fdct);
+				const auto zz = zz_encode(quant);
+				const auto rl = row_length_encode(zz);
+				const auto drl = row_length_decode(rl);
+				const auto d_zz = zz_decode(drl);
+			const auto rev_quant = dequantize(d_zz);
+		const auto rev_fdct = rev_FDCT(rev_quant);
 	const auto new_Y = reconstruct_image(rev_fdct, y.rows, img.cols);
 
-	cv::imshow("T", y);
+
 	cv::imshow("new_Y", new_Y);
+
 	cv::waitKey();
 	return 0;
 }
