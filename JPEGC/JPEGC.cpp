@@ -46,6 +46,7 @@ int main(int argc, char** argv)
 
 	const auto new_Y = reconstruct_image(rev_fdct, y.rows, img.cols);
 
+	cv::imshow("T", y);
 	cv::imshow("new_Y", new_Y);
 	cv::waitKey();
 	return 0;

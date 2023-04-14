@@ -5,9 +5,12 @@
 #include <valarray>
 #include <vector>
 #include <functional>
+#include <numbers>
+
 export module imageproc;
 using SIMG = cv::Mat_<unsigned char>;
-using SSIMG = cv::Mat_<char>;
+using SSIMG = cv::Mat_<int>;
+using FIMG = cv::Mat_<float>;
 using TIMG = cv::Mat_<cv::Vec3b>;
 
 export std::tuple<SIMG, SIMG, SIMG> transform_bgr_to_yuv_split(const TIMG img)
@@ -99,14 +102,93 @@ std::vector <std::vector<cv::Mat_<OUT>>> transform_chunk(const std::vector <std:
 }
 
 
-export std::vector<std::vector<SSIMG>> FDCT(const std::vector<std::vector<SIMG>>& data)
+template<typename IN, typename OUT>
+std::vector <std::vector<cv::Mat_<OUT>>> transform_chunk(const std::vector <std::vector<cv::Mat_<IN>>>& in_data, const std::function< cv::Mat_<OUT>(const cv::Mat_ <IN>&)>& transform_func)
+{
+	std::vector<std::vector<cv::Mat_<OUT>>> out_data{};
+	out_data.resize(in_data.size());
+	for (auto i = 0; i < in_data.size(); i++)
+	{
+		for (auto j = 0; j < in_data[i].size(); j++)
+		{
+			out_data[i].emplace_back(transform_func(in_data[i][j]));
+		}
+	}
+	return out_data;
+}
+
+export std::vector<std::vector<FIMG>> FDCT(const std::vector<std::vector<SIMG>>& data)
 {
 	//subtracting
-	std::vector<std::vector<SSIMG>> subtracted_values = transform_chunk<unsigned char, char>(data, [](unsigned char unsigned_value,int,int) { return static_cast<char>(unsigned_value - 128); });
-	return subtracted_values;
+	std::vector<std::vector<SSIMG>> subtracted_values = transform_chunk<unsigned char, int>(data, [](unsigned char unsigned_value,int,int) { return static_cast<int>(unsigned_value - 128); });
+	std::vector<std::vector<FIMG>> T = transform_chunk<int, float>(subtracted_values, [](SSIMG chunk) -> SSIMG {
+		FIMG FDCT_chunk(chunk.rows, chunk.cols);
+		for (auto i = 0; i < FDCT_chunk.rows; i++)
+		{
+			for (auto j = 0; j < FDCT_chunk.cols; j++)
+			{
+				FDCT_chunk(i, j) = 0.0f;
+				for (auto ii = 0; ii < chunk.rows; ii++)
+				{
+					for (auto jj = 0; jj < chunk.cols; jj++)
+					{
+						FDCT_chunk(i, j) += static_cast<float>(chunk(ii, jj)) * std::cos(((2 * ii + 1) * i * std::numbers::pi_v<float>) /16.0f)
+																			  * std::cos(((2 * jj + 1) * j * std::numbers::pi_v<float>) /16.0f);
+					}
+				}
+				const float alpha_i = i == 0 ? std::sqrt(1.0f / 8.0f) : std::sqrt(2.0f / 8.0f);
+				const float alpha_j = j == 0 ? std::sqrt(1.0f / 8.0f) : std::sqrt(2.0f / 8.0f);
+				FDCT_chunk(i, j) *= alpha_i * alpha_j;
+			}
+		}
+		return FDCT_chunk;
+	});
+	return T;
 }
-export std::vector<std::vector<SIMG>> rev_FDCT(const std::vector<std::vector<SSIMG>>& data)
+export std::vector<std::vector<SIMG>> rev_FDCT(const std::vector<std::vector<FIMG>>& data)
 {	
-	std::vector<std::vector<SIMG>> added_values = transform_chunk<char, unsigned char>(data, [](char signed_value, int, int) { return static_cast<unsigned char>(signed_value + 128); });
+	std::vector < std::vector<SSIMG>> subtracted_values = transform_chunk<float, int>(data, 
+		[](FIMG float_chunk)->SSIMG 
+		{
+			SSIMG subtracted_chunk(float_chunk.rows, float_chunk.cols);
+			for (auto i = 0; i < subtracted_chunk.rows; i++)
+			{
+				
+				for (auto j = 0; j < subtracted_chunk.cols; j++) 
+				{
+					float acc = 0.0f;
+					for (auto ii = 0; ii < float_chunk.rows; ii++)
+					{
+						for (auto jj = 0; jj < float_chunk.cols; jj++)
+						{
+							const float alpha_i = ii == 0 ? std::sqrt(1.0f / 8.0f) : std::sqrt(2.0f / 8.0f);
+							const float alpha_j = jj == 0 ? std::sqrt(1.0f / 8.0f) : std::sqrt(2.0f / 8.0f);
+							acc +=  alpha_i * alpha_j * float_chunk(ii, jj) * std::cos(((2 * i + 1) * ii * std::numbers::pi_v<float>)/16.0f)
+																			* std::cos(((2 * j + 1) * jj * std::numbers::pi_v<float>)/16.0f);
+						}
+					}
+					subtracted_chunk(i, j) =  static_cast<char>(acc);
+				}
+			}
+			return subtracted_chunk;
+		});
+
+
+
+
+
+	std::vector<std::vector<SIMG>> added_values = transform_chunk<int, unsigned char>(subtracted_values, [](const SSIMG& signed_values)
+		{ 
+			SIMG transformed_chunk(signed_values.rows, signed_values.cols);
+			for (int i = 0; i < signed_values.rows; i++)
+			{
+				for (int j = 0; j < signed_values.cols; j++)
+				{
+					transformed_chunk(i,j)  = static_cast<unsigned char>(signed_values(i,j) + 128);
+				}
+			}
+			return transformed_chunk;
+		
+		});
 	return added_values;
 }
