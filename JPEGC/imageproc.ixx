@@ -169,7 +169,8 @@ export std::vector<std::vector<SIMG>> rev_FDCT(const std::vector<std::vector<FIM
 																			* std::cos(((2 * j + 1) * jj * std::numbers::pi_v<float>)/16.0f);
 						}
 					}
-					subtracted_chunk(i, j) =  static_cast<char>(acc);
+
+					subtracted_chunk(i, j) =  static_cast<char>(std::clamp<int>(acc,static_cast<char>(-127), static_cast<char>(127)));
 				}
 			}
 			return subtracted_chunk;

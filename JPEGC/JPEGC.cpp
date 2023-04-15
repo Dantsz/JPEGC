@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 	cv::imshow("V", v);*/
 
 	
-	//std::cout << std::format("Image contains {} chunks ({} rows, {} cols)", chunks_of_Y.size() * chunks_of_Y[0].size(), chunks_of_Y.size(), chunks_of_Y[0].size()) << std::endl;
+	
 	const auto chunks_of_Y = chunk_image(y);
 		const auto fdct = FDCT(chunks_of_Y);
 			const auto quant = quantize(fdct);
