@@ -30,28 +30,28 @@ int main(int argc, char** argv)
 
 	cv::Mat_<cv::Vec3b> img = cv::imread(src_path);
 	const auto [y, u, v] = transform_bgr_to_yuv_split(img);
+	const auto transformed_img = transform_yuv_to_bgr_combine(std::make_tuple(y, u, v));
+	cv::imshow("img", transformed_img);
+	const auto compressed_y = jpeg_compress(y);
+	const auto compressed_u = jpeg_compress(u);
+	const auto compressed_v = jpeg_compress(v);
+
+	const auto decompressed_y = jpeg_decompress(compressed_y);
+	const auto decompressed_u = jpeg_decompress(compressed_u);
+	const auto decompressed_v = jpeg_decompress(compressed_v);
+	const auto decompressed_img = transform_yuv_to_bgr_combine(std::make_tuple(decompressed_y, decompressed_u, decompressed_v));
+	cv::imshow("img_compressed", decompressed_img);
+	//cv::imshow("Y", y);
+	///*cv::imshow("U", u);
+	//cv::imshow("V", v);*/
+
+	//
+	//const auto compressed = jpeg_compress(y);
+	//const auto new_Y = jpeg_decompress(compressed);
 
 
 
-	cv::imshow("Y", y);
-	/*cv::imshow("U", u);
-	cv::imshow("V", v);*/
-
-	
-	
-	const auto chunks_of_Y = chunk_image(y);
-		const auto fdct = FDCT(chunks_of_Y);
-			const auto quant = quantize(fdct);
-				const auto zz = zz_encode(quant);
-				const auto rl = row_length_encode(zz);
-				const auto drl = row_length_decode(rl);
-				const auto d_zz = zz_decode(drl);
-			const auto rev_quant = dequantize(d_zz);
-		const auto rev_fdct = rev_FDCT(rev_quant);
-	const auto new_Y = reconstruct_image(rev_fdct, y.rows, img.cols);
-
-
-	cv::imshow("new_Y", new_Y);
+	//cv::imshow("new_Y", new_Y);
 
 	cv::waitKey();
 	return 0;

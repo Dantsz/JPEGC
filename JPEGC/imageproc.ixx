@@ -24,17 +24,36 @@ export std::tuple<SIMG, SIMG, SIMG> transform_bgr_to_yuv_split(const TIMG img)
 	return std::make_tuple(splits[0], splits[1], splits[2]);
 }
 
+export TIMG transform_yuv_to_bgr_combine(const std::tuple<SIMG, SIMG, SIMG>& channels)
+{
+	const auto& [y, u, v] = channels;
+	SIMG channel_array[3] = { y,u,v };
+	TIMG yuv_image;
+	cv::merge(channel_array, 3, yuv_image);
+	TIMG image(yuv_image.rows, yuv_image.cols);
+	cv::cvtColor(yuv_image, image, cv::COLOR_YUV2BGR);
+
+	return image;
+}
+
+
 export template<typename T>
 bool isInside(const cv::Mat_ <T>& mat, int i, int j)
 {
 	return i >= 0 && j >= 0 && i < mat.rows && j < mat.cols;
 }
 
+
+export template<int ROWS , int COLS >std::tuple<int, int> get_chunks_dimensions(int rows, int cols)
+{
+	const int chunk_mat_rows = rows / ROWS + (rows % ROWS == 0 ? 0 : 1);
+	const int chunk_mat_cols = cols / COLS + (cols % COLS == 0 ? 0 : 1);
+	return std::make_tuple(chunk_mat_rows, chunk_mat_cols);
+}
 export template<int ROWS = 8, int COLS = 8>
 std::vector<std::vector<SIMG>> chunk_image(const SIMG& src_image)
 {
-	const int chunk_mat_rows = src_image.rows / ROWS + (src_image.rows % ROWS == 0 ? 0 : 1);
-	const int chunk_mat_cols = src_image.cols / COLS + (src_image.cols % COLS == 0 ? 0 : 1);
+	const auto [chunk_mat_rows, chunk_mat_cols] = get_chunks_dimensions<ROWS,COLS>(src_image.rows, src_image.cols);
 	std::vector<std::vector<SIMG>> chunk_mat{};
 	chunk_mat.resize(chunk_mat_rows);
 	for (auto i = 0; i < chunk_mat_rows; i++)
@@ -330,4 +349,28 @@ export  std::tuple<std::vector<std::array<int8_t, 64>>, size_t, size_t> row_leng
 		}
 	}
 	return std::make_tuple(rows_data, rows, cols);
+}
+
+export std::tuple<size_t, size_t, std::vector<std::vector<std::tuple<int8_t, uint8_t>>>> jpeg_compress(const SIMG& src_image)
+{
+	const auto chunks = chunk_image(src_image);
+	const auto fdct = FDCT(chunks);
+	const auto quant = quantize(fdct);
+	const auto zz = zz_encode(quant);
+	const auto rl = row_length_encode(zz);
+	return std::make_tuple(src_image.rows,src_image.cols,std::get<2>(rl));
+}
+export SIMG jpeg_decompress(const std::tuple<size_t, size_t, std::vector<std::vector<std::tuple<int8_t, uint8_t>>>> & rl)
+{
+	const auto [rows, cols, data] = rl;
+	const auto [chunk_rows, chunk_cols] = get_chunks_dimensions<8, 8>(rows, cols);
+	const auto rl_data = std::make_tuple(chunk_rows,chunk_cols,data);
+
+
+	const auto drl = row_length_decode(rl_data);
+	const auto d_zz = zz_decode(drl);
+	const auto rev_quant = dequantize(d_zz);
+	const auto rev_fdct = rev_FDCT(rev_quant);
+	const auto new_image = reconstruct_image(rev_fdct, rows, cols);
+	return new_image;
 }
