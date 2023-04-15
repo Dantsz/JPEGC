@@ -9,12 +9,12 @@
 #include <cstdint>
 
 export module imageproc;
-using SIMG = cv::Mat_<unsigned char>;
-using SSIMG = cv::Mat_<int>;
-using SCIMG = cv::Mat_<int8_t>;
-using FIMG = cv::Mat_<float>;
-using TIMG = cv::Mat_<cv::Vec3b>;
-
+export using SIMG = cv::Mat_<unsigned char>;
+export using SSIMG = cv::Mat_<int>;
+export using SCIMG = cv::Mat_<int8_t>;
+export using FIMG = cv::Mat_<float>;
+export using TIMG = cv::Mat_<cv::Vec3b>;
+export using JPECCompressedData = std::tuple<size_t, size_t, std::vector<std::vector<std::tuple<int8_t, uint8_t>>>>;
 export std::tuple<SIMG, SIMG, SIMG> transform_bgr_to_yuv_split(const TIMG img)
 {
 	auto yuv = img.clone();
@@ -351,7 +351,7 @@ export  std::tuple<std::vector<std::array<int8_t, 64>>, size_t, size_t> row_leng
 	return std::make_tuple(rows_data, rows, cols);
 }
 
-export std::tuple<size_t, size_t, std::vector<std::vector<std::tuple<int8_t, uint8_t>>>> jpeg_compress(const SIMG& src_image)
+export JPECCompressedData jpeg_compress(const SIMG& src_image)
 {
 	const auto chunks = chunk_image(src_image);
 	const auto fdct = FDCT(chunks);
@@ -360,7 +360,7 @@ export std::tuple<size_t, size_t, std::vector<std::vector<std::tuple<int8_t, uin
 	const auto rl = row_length_encode(zz);
 	return std::make_tuple(src_image.rows,src_image.cols,std::get<2>(rl));
 }
-export SIMG jpeg_decompress(const std::tuple<size_t, size_t, std::vector<std::vector<std::tuple<int8_t, uint8_t>>>> & rl)
+export SIMG jpeg_decompress(const JPECCompressedData& rl)
 {
 	const auto [rows, cols, data] = rl;
 	const auto [chunk_rows, chunk_cols] = get_chunks_dimensions<8, 8>(rows, cols);

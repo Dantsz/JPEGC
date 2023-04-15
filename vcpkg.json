@@ -3,7 +3,7 @@
   "version": "1",
   "dependencies": [
     "opencv",
-    "argumentum"
-
+    "argumentum",
+    "alpaca"
   ]
 }
