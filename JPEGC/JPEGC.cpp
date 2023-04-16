@@ -36,7 +36,6 @@ int main(int argc, char** argv)
 		cv::Mat_<cv::Vec3b> img = cv::imread(src_path);
 		const auto [y, u, v] = transform_bgr_to_yuv_split(img);
 		const auto transformed_img = transform_yuv_to_bgr_combine(std::make_tuple(y, u, v));
-		cv::imshow("img", transformed_img);
 		/*
 		* This would have been so much better if I had a 'then' member function for futures
 		*/
