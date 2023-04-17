@@ -1,4 +1,5 @@
 ﻿#include <opencv2/opencv.hpp>
+#include <opencv2/core/utils/logger.hpp>
 #include <argumentum/argparse.h>
 #include <string>
 #include <format>
@@ -18,6 +19,7 @@ struct defaults
 
 int main(int argc, char** argv)
 {
+	cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 	std::string src_path{};
 	std::string dst_path{};
 	bool decompress = false;
@@ -42,7 +44,7 @@ int main(int argc, char** argv)
 		auto f_y = std::async(std::launch::async, [&y]() { return jpeg_compress(y); });
 		auto f_u = std::async(std::launch::async, [&u]() { return jpeg_compress(u); });
 		auto f_v = std::async(std::launch::async, [&v]() { return jpeg_compress(v); });
-
+		
 		const auto compressed_data = std::make_tuple(f_y.get(), f_u.get(), f_v.get());
 		std::vector<uint8_t> data;
 		auto bytes_written = alpaca::serialize(compressed_data, data);
@@ -74,8 +76,7 @@ int main(int argc, char** argv)
 				const auto decompressed_v = fd_v.get();
 
 				const auto decompressed_img = transform_yuv_to_bgr_combine(std::make_tuple(decompressed_y, decompressed_u, decompressed_v));
-				cv::imshow("img_compressed", decompressed_img);
-				cv::waitKey();
+				cv::imwrite(dst_path, decompressed_img);
 			}
 			else
 			{
