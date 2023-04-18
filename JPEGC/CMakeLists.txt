@@ -10,6 +10,7 @@ find_package(alpaca CONFIG REQUIRED)
 
 # Add source to this project's executable.
 add_executable (JPEGC "JPEGC.cpp")
+
 target_sources(JPEGC PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES imageproc.ixx)
 
 set_property(TARGET JPEGC PROPERTY CXX_STANDARD 20)

@@ -77,6 +77,6 @@ fn main() {
             .join("images")
             .to_str()
             .unwrap(),
-        Path::new(out_dir).join("Release").join("images").as_path(),
+        Path::new(out_dir).join("Release").join("report").as_path(),
     );
 }

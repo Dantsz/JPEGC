@@ -3,10 +3,12 @@ use std::fs::metadata;
 use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 
 struct CompressionData {
+    image_name: String,
     pre_compression_size: usize,
     post_compression_size: usize,
     compression_ratio: f64,
@@ -19,6 +21,7 @@ fn get_file_size(path: &Path) -> Option<usize> {
     Some(file_size)
 }
 fn calculate_properties(
+    image_name: String,
     uncompressed_path: &Path,
     compressed_path: &Path,
     compression_elapsed_time: usize,
@@ -27,6 +30,7 @@ fn calculate_properties(
     let original = get_file_size(uncompressed_path).unwrap();
     let compressed = get_file_size(compressed_path).unwrap();
     CompressionData {
+        image_name,
         pre_compression_size: original,
         post_compression_size: compressed,
         compression_ratio: (original as f64) / (compressed as f64),
@@ -34,7 +38,7 @@ fn calculate_properties(
         decompression_elapsed_time,
     }
 }
-fn process_entry(entry: DirEntry, images_dir: &PathBuf, jpecg: &str) {
+fn process_entry(entry: DirEntry, images_dir: &PathBuf, jpecg: &str) -> CompressionData {
     let image_src = images_dir
         .join(entry.file_name())
         .join(format!("{}.bmp", entry.file_name().to_str().unwrap()));
@@ -90,6 +94,7 @@ fn process_entry(entry: DirEntry, images_dir: &PathBuf, jpecg: &str) {
     )
     .expect("Failed to write image");
     let compression_data = calculate_properties(
+        entry.file_name().to_str().unwrap().to_owned(),
         &image_src.as_path(),
         &image_dst.as_path(),
         comp_elapsed_ms,
@@ -100,19 +105,40 @@ fn process_entry(entry: DirEntry, images_dir: &PathBuf, jpecg: &str) {
         serde_json::to_string(&compression_data).expect("Failed to serialize compression data"),
     )
     .expect("Failed to write stats");
+    compression_data
 }
 fn main() {
-    let images_dir = Path::new(env!("OUT_DIR")).join("Release").join("images");
+    let images_dir = Path::new(env!("OUT_DIR")).join("Release").join("report");
     let jpecg_executable_path = Path::new(env!("OUT_DIR")).join("Release").join("JPEGC.exe");
     let jpecg = jpecg_executable_path.as_os_str().to_str().unwrap();
     println!("Images : {:?}\nExecutable:{}\n", images_dir, jpecg);
     let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
     println!("Running on {} threads", pool.current_num_threads());
-    if let Ok(entries) = fs::read_dir(images_dir.clone()) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                pool.install(|| process_entry(entry, &images_dir, jpecg));
+    let all_report = Arc::try_unwrap(pool.scope(|s| {
+        let compression_entries = Arc::new(Mutex::new(Vec::<CompressionData>::new()));
+        if let Ok(entries) = fs::read_dir(images_dir.clone()) {
+            for entry in entries {
+                let report_entries = compression_entries.clone();
+                let imgs_dir = images_dir.clone();
+                if let Ok(entry) = entry {
+                    if Path::new(&entry.path()).is_dir() {
+                        s.spawn(move |_| {
+                            let entry_data = process_entry(entry, &imgs_dir, jpecg);
+                            (*report_entries).lock().unwrap().push(entry_data);
+                        });
+                    }
+                }
             }
         }
-    }
+        compression_entries
+    }))
+    .expect("Failed to compile final report.")
+    .into_inner()
+    .expect("");
+
+    fs::write(
+        images_dir.join("report.json"),
+        serde_json::to_string_pretty(&all_report).expect(""),
+    )
+    .expect("Failed to write final report");
 }
