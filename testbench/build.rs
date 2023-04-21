@@ -1,11 +1,11 @@
 use fs_extra::{copy_items, dir};
 
 use std::{
-    env, fs,
+    env, fs, io,
     path::{Path, PathBuf},
     process::Command,
 };
-fn compile_JPECG(out_dir: &str) -> &str {
+fn compile_JPECG(out_dir: &str) -> Result<String, io::Error> {
     let configure_message = Command::new("cmake")
         .args(&["--preset=defaultvcpkg", "."])
         .current_dir("../")
@@ -27,7 +27,12 @@ fn compile_JPECG(out_dir: &str) -> &str {
         ),
     )
     .expect("");
-    r"C:\dev\JPEGC\builds\defaultvcpkg\JPEGC\Release"
+    Ok(Path::new(&env::current_dir()?.parent().unwrap())
+        .join(r#"builds\defaultvcpkg\JPEGC\Release"#)
+        .as_os_str()
+        .to_str()
+        .unwrap()
+        .to_owned())
 }
 fn setup_test_images(images_dir: &str, dst_path: &Path) {
     fs::create_dir_all(dst_path).expect("");
@@ -65,7 +70,7 @@ fn main() {
         .map(PathBuf::from)
         .unwrap();
 
-    let compiled_dir = compile_JPECG(out_dir);
+    let compiled_dir = compile_JPECG(out_dir).expect("");
 
     let options = dir::CopyOptions::new().copy_inside(true).overwrite(true);
 

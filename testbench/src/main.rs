@@ -1,3 +1,4 @@
+use plotters::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs::metadata;
 use std::fs::{self, DirEntry};
@@ -141,4 +142,20 @@ fn main() {
         serde_json::to_string_pretty(&all_report).expect(""),
     )
     .expect("Failed to write final report");
+
+    let graph_path = images_dir.join("0.1.png");
+    let root_drawing_area = BitMapBackend::new(&graph_path, (1024, 768)).into_drawing_area();
+
+    root_drawing_area.fill(&WHITE).unwrap();
+
+    let mut chart = ChartBuilder::on(&root_drawing_area)
+        .build_cartesian_2d(-3.14..3.14, -1.2..1.2)
+        .unwrap();
+
+    chart
+        .draw_series(LineSeries::new(
+            (-314..314).map(|x| x as f64 / 100.0).map(|x| (x, x.sin())),
+            &RED,
+        ))
+        .unwrap();
 }
