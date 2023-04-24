@@ -351,16 +351,18 @@ export  std::tuple<std::vector<std::array<int8_t, 64>>, size_t, size_t> row_leng
 	return std::make_tuple(rows_data, rows, cols);
 }
 
-export JPECCompressedData jpeg_compress(const SIMG& src_image)
+export JPECCompressedData jpeg_compress(const SIMG& src_image, double scaling_factor = 1.0)
 {
-	const auto chunks = chunk_image(src_image);
+	SIMG scaled_image;
+	cv::resize(src_image, scaled_image, cv::Size(), scaling_factor, scaling_factor, cv::INTER_AREA);
+	const auto chunks = chunk_image(scaled_image);
 	const auto fdct = FDCT(chunks);
 	const auto quant = quantize(fdct);
 	const auto zz = zz_encode(quant);
 	const auto rl = row_length_encode(zz);
-	return std::make_tuple(src_image.rows,src_image.cols,std::get<2>(rl));
+	return std::make_tuple(scaled_image.rows, scaled_image.cols,std::get<2>(rl));
 }
-export SIMG jpeg_decompress(const JPECCompressedData& rl)
+export SIMG jpeg_decompress(const JPECCompressedData& rl , int original_x_size, int original_y_size)
 {
 	const auto [rows, cols, data] = rl;
 	const auto [chunk_rows, chunk_cols] = get_chunks_dimensions<8, 8>(rows, cols);
@@ -371,6 +373,10 @@ export SIMG jpeg_decompress(const JPECCompressedData& rl)
 	const auto d_zz = zz_decode(drl);
 	const auto rev_quant = dequantize(d_zz);
 	const auto rev_fdct = rev_FDCT(rev_quant);
-	const auto new_image = reconstruct_image(rev_fdct, rows, cols);
-	return new_image;
+	const auto non_scaled_image = reconstruct_image(rev_fdct, rows, cols);
+
+	SIMG scaled_image;
+	cv::resize(non_scaled_image, scaled_image, cv::Size(original_x_size, original_y_size), 0, 0, cv::INTER_AREA);
+
+	return scaled_image;
 }

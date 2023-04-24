@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 /vc140.idb
 /builds/defaultvcpkg
+testbench/target/.rustc_info.json
