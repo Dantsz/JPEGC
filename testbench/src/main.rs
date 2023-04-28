@@ -1,5 +1,8 @@
+use plotters::coord::ranged1d::ValueFormatter;
+use plotters::prelude::SegmentValue::Exact;
 use plotters::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::cmp::max;
 use std::fs::metadata;
 use std::fs::{self, DirEntry};
 use std::path::{Path, PathBuf};
@@ -108,10 +111,124 @@ fn process_entry(entry: DirEntry, images_dir: &PathBuf, jpecg: &str) -> Compress
     .expect("Failed to write stats");
     compression_data
 }
+
+fn create_compression_sizes_chart(dat: &Vec<CompressionData>, graph_path: &PathBuf) {
+    let number_of_samples = dat.len() - 1;
+    let max_size: usize = dat
+        .into_iter()
+        .map(|x| max(x.pre_compression_size, x.post_compression_size))
+        .max()
+        .unwrap_or(0);
+
+    let root_drawing_area = BitMapBackend::new(graph_path, (1024, 768)).into_drawing_area();
+
+    root_drawing_area.fill(&WHITE).unwrap();
+    let mut chart = ChartBuilder::on(&root_drawing_area)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption("Compression Data Histogram", ("sans-serif", 50.0))
+        .build_cartesian_2d((0..number_of_samples).into_segmented(), 0..max_size)
+        .unwrap();
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .bold_line_style(&WHITE.mix(0.3))
+        .y_desc("Bytes")
+        .x_desc("Image")
+        .axis_desc_style(("sans-serif", 15))
+        .x_label_formatter(&|index| {
+            let indx = match index {
+                Exact(x) => *x,
+                SegmentValue::CenterOf(x) => *x,
+                SegmentValue::Last => 0,
+            };
+            if indx < dat.len() {
+                dat[indx].image_name.clone()
+            } else {
+                "".to_owned()
+            }
+        })
+        .draw()
+        .unwrap();
+
+    let pre_data_iter = dat
+        .iter()
+        .zip(0..dat.len())
+        .map(|(x, i)| (i, x.pre_compression_size));
+
+    let pre_histogram_style = Histogram::vertical(&chart).style(RED.filled()).margin(2);
+    let pre_histo_data = pre_histogram_style.data(pre_data_iter);
+    chart.draw_series(pre_histo_data).unwrap();
+
+    let post_data_iter = dat
+        .iter()
+        .zip(0..dat.len())
+        .map(|(x, i)| (i, x.post_compression_size));
+
+    let post_histogram_style = Histogram::vertical(&chart).style(GREEN.filled()).margin(2);
+    let post_histo_data = post_histogram_style.data(post_data_iter);
+    chart.draw_series(post_histo_data).unwrap();
+
+    root_drawing_area.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+}
+fn create_compression_ratio_chart(dat: &Vec<CompressionData>, graph_path: &PathBuf) {
+    let number_of_samples = dat.len() - 1;
+    let max_size = dat
+        .into_iter()
+        .map(|x| x.compression_ratio)
+        .reduce(f64::max)
+        .unwrap_or(0.0);
+
+    let root_drawing_area = BitMapBackend::new(graph_path, (1024, 768)).into_drawing_area();
+
+    root_drawing_area.fill(&WHITE).unwrap();
+    let mut chart = ChartBuilder::on(&root_drawing_area)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption("Compression Ratio Histogram", ("sans-serif", 50.0))
+        .build_cartesian_2d((0..number_of_samples).into_segmented(), 0.0..max_size)
+        .unwrap();
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .bold_line_style(&WHITE.mix(0.3))
+        .y_desc("Ratio")
+        .x_desc("Image")
+        .axis_desc_style(("sans-serif", 15))
+        .x_label_formatter(&|index| {
+            let indx = match index {
+                Exact(x) | SegmentValue::CenterOf(x) => *x,
+                SegmentValue::Last => 0,
+            };
+            if indx < dat.len() {
+                dat[indx].image_name.clone()
+            } else {
+                "".to_owned()
+            }
+        })
+        .draw()
+        .unwrap();
+
+    let data_iter = dat
+        .iter()
+        .zip(0..dat.len())
+        .map(|(x, i)| (i, x.compression_ratio));
+
+    let histogram_style = Histogram::vertical(&chart).style(RED.filled()).margin(2);
+    let histo_data = histogram_style.data(data_iter);
+    chart.draw_series(histo_data).unwrap();
+
+    root_drawing_area.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+}
 fn main() {
     let images_dir = Path::new(env!("OUT_DIR")).join("Release").join("report");
     let jpecg_executable_path = Path::new(env!("OUT_DIR")).join("Release").join("JPEGC.exe");
     let jpecg = jpecg_executable_path.as_os_str().to_str().unwrap();
+
     println!("Images : {:?}\nExecutable:{}\n", images_dir, jpecg);
     let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
     println!("Running on {} threads", pool.current_num_threads());
@@ -143,19 +260,8 @@ fn main() {
     )
     .expect("Failed to write final report");
 
-    let graph_path = images_dir.join("0.1.png");
-    let root_drawing_area = BitMapBackend::new(&graph_path, (1024, 768)).into_drawing_area();
-
-    root_drawing_area.fill(&WHITE).unwrap();
-
-    let mut chart = ChartBuilder::on(&root_drawing_area)
-        .build_cartesian_2d(-3.14..3.14, -1.2..1.2)
-        .unwrap();
-
-    chart
-        .draw_series(LineSeries::new(
-            (-314..314).map(|x| x as f64 / 100.0).map(|x| (x, x.sin())),
-            &RED,
-        ))
-        .unwrap();
+    let graph_path = images_dir.join("sizes.png");
+    create_compression_sizes_chart(&all_report, &graph_path);
+    let graph_compression_ratio_path = images_dir.join("compression_ratios.png");
+    create_compression_ratio_chart(&all_report, &graph_compression_ratio_path);
 }
