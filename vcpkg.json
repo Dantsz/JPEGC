@@ -5,5 +5,6 @@
     "opencv",
     "argumentum",
     "alpaca"
-  ]
+  ],
+  "builtin-baseline": "de9557b47b1f5610403eab25e59220ccba3f8d8d"
 }
